@@ -54,6 +54,13 @@ var reqDur = &Metric{
 	Description: "The HTTP request latencies in seconds.",
 	Type:        "summary"}
 
+var reqDurDet = &Metric{
+	ID:          "reqDurDet",
+	Name:        "request_duration_detailed_seconds",
+	Description: "The HTTP request latencies in seconds by status code and HTTP method.",
+	Type:        "histogram_vec",
+	Args:        []string{"code", "method", "host", "url"}}
+
 var resSz = &Metric{
 	ID:          "resSz",
 	Name:        "response_size_bytes",
@@ -69,6 +76,7 @@ var reqSz = &Metric{
 var standardMetrics = []*Metric{
 	reqCnt,
 	reqDur,
+	reqDurDet,
 	resSz,
 	reqSz,
 }
@@ -109,6 +117,7 @@ type Metric struct {
 type Prometheus struct {
 	reqCnt               *prometheus.CounterVec
 	reqDur, reqSz, resSz prometheus.Summary
+	reqDurDet            *prometheus.HistogramVec
 	router               *echo.Echo
 	listenAddress        string
 	Ppg                  PushGateway
@@ -345,6 +354,8 @@ func (p *Prometheus) registerMetrics(subsystem string) {
 			p.reqCnt = metric.(*prometheus.CounterVec)
 		case reqDur:
 			p.reqDur = metric.(prometheus.Summary)
+		case reqDurDet:
+			p.reqDurDet = metric.(*prometheus.HistogramVec)
 		case resSz:
 			p.resSz = metric.(prometheus.Summary)
 		case reqSz:
@@ -382,7 +393,6 @@ func (p *Prometheus) HandlerFunc(next echo.HandlerFunc) echo.HandlerFunc {
 		elapsed := float64(time.Since(start)) / float64(time.Second)
 		resSz := float64(c.Response().Size)
 
-		p.reqDur.Observe(elapsed)
 		url := p.RequestCounterURLLabelMappingFunc(c)
 
 		if len(p.URLLabelFromContext) > 0 {
@@ -393,6 +403,8 @@ func (p *Prometheus) HandlerFunc(next echo.HandlerFunc) echo.HandlerFunc {
 			url = u.(string)
 		}
 
+		p.reqDur.Observe(elapsed)
+		p.reqDurDet.WithLabelValues(status, c.Request().Method, c.Request().Host, url).Observe(elapsed)
 		p.reqCnt.WithLabelValues(status, c.Request().Method, c.Request().Host, url).Inc()
 		p.reqSz.Observe(float64(reqSz))
 		p.resSz.Observe(resSz)

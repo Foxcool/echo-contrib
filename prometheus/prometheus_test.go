@@ -15,6 +15,7 @@ import (
 func unregister(p *Prometheus) {
 	prometheus.Unregister(p.reqCnt)
 	prometheus.Unregister(p.reqDur)
+	prometheus.Unregister(p.reqDurDet)
 	prometheus.Unregister(p.reqSz)
 	prometheus.Unregister(p.resSz)
 }
