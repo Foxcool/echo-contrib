@@ -376,7 +376,7 @@ func (p *Prometheus) HandlerFunc(next echo.HandlerFunc) echo.HandlerFunc {
 		start := time.Now()
 		reqSz := computeApproximateRequestSize(c.Request())
 
-		if err = next(c); err != nil {
+		if err = next(c); err != nil && !c.Response().Committed {
 			c.Error(err)
 		}
 
